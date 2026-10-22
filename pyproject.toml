@@ -59,6 +59,9 @@ changelog = "https://github.com/jazzband/tablib/blob/master/HISTORY.md"
 
 [tool.setuptools_scm]
 write_to = "src/tablib/_version.py"
+# Building from a source archive without .git (release ZIP, vendored copy)
+# would otherwise abort with "unable to detect version".
+fallback_version = "3.10.0"
 
 [tool.ruff]
 fix = true

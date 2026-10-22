@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tablib-markdown-format"
+version = "1.0.0"
+description = "Markdown pipe table format for tablib, delivered as a tablib plugin"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = ["tablib>=3.9"]
+
+[project.entry-points."tablib.formats"]
+markdown = "tablib_markdown_format:MarkdownFormat"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

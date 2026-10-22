@@ -9,6 +9,7 @@ __lazy_modules__ = {
     "tablib.formats._csv",
     "tablib.formats._json",
     "tablib.formats._tsv",
+    "tablib.plugins",
     "tablib.utils",
 }
 
@@ -16,7 +17,7 @@ from functools import partialmethod
 from importlib import import_module
 from importlib.util import find_spec
 
-from ..exceptions import UnsupportedFormat
+from ..exceptions import PluginConflict, PluginQuarantined, UnsupportedFormat
 from ..utils import normalize_input
 from ._csv import CSVFormat
 from ._json import JSONFormat
@@ -78,8 +79,19 @@ class ImportExportSetDescriptor(FormatDescriptorBase):
 class Registry:
     _formats = {}
 
-    def register(self, key, format_or_path):
+    def register(self, key, format_or_path, replace=True):
+        """Add a format under ``key``.
+
+        ``replace=False`` turns a name clash into a :class:`PluginConflict`
+        instead of silently overwriting an existing format.  The plugin
+        manager always passes ``replace=False`` unless the user explicitly
+        configured ``allow_override``; direct callers keep the historical
+        overwrite behaviour.
+        """
         from ..core import Databook, Dataset
+
+        if not replace and key in self._formats:
+            raise PluginConflict(f"Format '{key}' is already registered.")
 
         # Create Databook.<format> read or read/write properties
         setattr(Databook, key, ImportExportBookDescriptor(key, format_or_path))
@@ -94,6 +106,34 @@ class Registry:
             setattr(Dataset, f'get_{key}', partialmethod(Dataset._get_in_format, key))
 
         self._formats[key] = format_or_path
+
+    def unregister(self, key):
+        """Remove a format and the descriptors it installed.  Returns success."""
+        from ..core import Databook, Dataset
+
+        if key not in self._formats:
+            return False
+        del self._formats[key]
+        for target in (Databook, Dataset):
+            for name in (key, f'get_{key}', f'set_{key}'):
+                try:
+                    delattr(target, name)
+                except AttributeError:
+                    pass
+        return True
+
+    def has(self, key):
+        """Whether ``key`` is registered (does not trigger plugin loading)."""
+        return key in self._formats
+
+    def keys(self):
+        """Registered keys in registration order (does not load plugins)."""
+        return tuple(self._formats)
+
+    def peek(self, key):
+        """Return the raw registration entry without resolving a lazy path."""
+        return self._formats.get(key)
+
 
     def register_builtins(self):
         # Registration ordering matters for autodetection.
@@ -121,12 +161,18 @@ class Registry:
             self.register('cli', 'tablib.formats._cli.CLIFormat')
 
     def formats(self):
-        for key, frm in self._formats.items():
+        self._load_plugins_once()
+        # Snapshot the keys: a plugin may be quarantined (and therefore
+        # unregistered) by its own detect() while this generator is running.
+        for key, frm in list(self._formats.items()):
             if isinstance(frm, str):
-                self._formats[key] = load_format_class(frm)
-            yield self._formats[key]
+                frm = self._formats[key] = load_format_class(frm)
+            yield frm
 
     def get_format(self, key):
+        # Plugins may override a built-in key, so the load pass has to happen
+        # before the key is looked up - not only for unknown keys.
+        self._load_plugins_once()
         if key not in self._formats:
             if key in uninstalled_format_messages:
                 raise UnsupportedFormat(
@@ -135,10 +181,29 @@ class Registry:
                         **uninstalled_format_messages[key], key=key
                     )
                 )
+            reason = self._quarantine_reason(key)
+            if reason is not None:
+                raise PluginQuarantined(
+                    f"The '{key}' format was quarantined after a plugin failure ({reason})."
+                )
             raise UnsupportedFormat(f"Tablib has no format '{key}' or it is not registered.")
         if isinstance(self._formats[key], str):
             self._formats[key] = load_format_class(self._formats[key])
         return self._formats[key]
+
+    @staticmethod
+    def _load_plugins_once():
+        """Run the plugin load pass; failures are contained inside it."""
+        from ..plugins import ensure_loaded
+
+        ensure_loaded()
+
+    @staticmethod
+    def _quarantine_reason(key):
+        from ..plugins import quarantine_reason
+
+        return quarantine_reason(key)
+
 
 
 registry = Registry()

@@ -1,5 +1,18 @@
 # History
 
+## Unreleased
+
+### Improvements
+
+- Add a format plugin system (`tablib.plugins`): entry point and directory
+  discovery, TOML/JSON configuration with per-plugin options, validated format
+  contract, failure diagnostics, a circuit breaker and a
+  `python -m tablib.plugins` inspection CLI. See `docs/plugins.rst`.
+- `Registry.register()` accepts `replace=False` to refuse a silent overwrite;
+  new `Registry.unregister()`, `has()`, `keys()` and `peek()` helpers.
+- `Registry.formats()` snapshots its keys so a plugin quarantined during its own
+  `detect()` cannot mutate the registry mid-iteration.
+
 ## 3.9.0 and newer
 
 See GitHub Releases:
