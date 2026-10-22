@@ -24,15 +24,16 @@ EXCLUDE_DIRS = {
 EXCLUDE_SUFFIXES = {
     ".pyc", ".pyo", ".pyd", ".egg-info", ".coverage", ".orig", ".rej", ".zip",
 }
-EXCLUDE_FILES = {".coverage", ".DS_Store", "coverage.xml", "SHA256SUMS.txt"}
-EXCLUDE_PREFIXES = (".coverage", "_version.py")
+EXCLUDE_FILES = {
+    ".coverage", ".DS_Store", "coverage.xml", "SHA256SUMS.txt", "_version.py",
+}
 
 
 def wanted(path):
     parts = set(path.parts)
     if parts & EXCLUDE_DIRS:
         return False
-    if path.name in EXCLUDE_FILES or path.name.startswith(EXCLUDE_PREFIXES):
+    if path.name in EXCLUDE_FILES:
         return False
     if path.suffix in EXCLUDE_SUFFIXES:
         return False
