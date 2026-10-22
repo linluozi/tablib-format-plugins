@@ -77,6 +77,12 @@ python -m tablib.plugins doctor
 See [docs/plugins.rst](docs/plugins.rst) for the contract, the configuration
 reference and the isolation model, and `examples/` for two complete plugins.
 
+![How a format plugin travels through one load pass](docs/img/plugin-lifecycle.png)
+
+*Settings, discovery, import and validation, then a guarded registration. A
+plugin that fails at any step is rejected or quarantined; the built-in formats
+keep working either way.*
+
 
 Tablib documentation is graciously hosted on https://tablib.readthedocs.io
 
